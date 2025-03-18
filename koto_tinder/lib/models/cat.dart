@@ -10,9 +10,9 @@ class Cat {
       id: json['id'],
       url: json['url'],
       breeds:
-      json['breeds'] != null
-          ? List<Breed>.from(json['breeds'].map((x) => Breed.fromJson(x)))
-          : null,
+          json['breeds'] != null
+              ? List<Breed>.from(json['breeds'].map((x) => Breed.fromJson(x)))
+              : null,
     );
   }
 }

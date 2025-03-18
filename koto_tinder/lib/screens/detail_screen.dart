@@ -13,7 +13,7 @@ class DetailScreen extends StatelessWidget {
   Widget build(BuildContext context) {
     // Получаем первую породу (если они есть)
     final breed =
-    cat.breeds != null && cat.breeds!.isNotEmpty ? cat.breeds![0] : null;
+        cat.breeds != null && cat.breeds!.isNotEmpty ? cat.breeds![0] : null;
 
     return Scaffold(
       appBar: AppBar(
@@ -43,23 +43,23 @@ class DetailScreen extends StatelessWidget {
                       fit: BoxFit.contain, // Сохраняем оригинальные пропорции
                       placeholder:
                           (context, url) => Container(
-                        width: MediaQuery.of(context).size.width - 32,
-                        height: MediaQuery.of(context).size.width * 0.5,
-                        color: Colors.grey[200],
-                        child: Center(
-                          child: Column(
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              const CircularProgressIndicator(),
-                              const SizedBox(height: 10),
-                              Text(
-                                'Загрузка изображения...',
-                                style: TextStyle(color: Colors.grey[600]),
+                            width: MediaQuery.of(context).size.width - 32,
+                            height: MediaQuery.of(context).size.width * 0.5,
+                            color: Colors.grey[200],
+                            child: Center(
+                              child: Column(
+                                mainAxisAlignment: MainAxisAlignment.center,
+                                children: [
+                                  const CircularProgressIndicator(),
+                                  const SizedBox(height: 10),
+                                  Text(
+                                    'Загрузка изображения...',
+                                    style: TextStyle(color: Colors.grey[600]),
+                                  ),
+                                ],
                               ),
-                            ],
+                            ),
                           ),
-                        ),
-                      ),
                       errorWidget: (context, url, error) {
                         // Удаляем неиспользуемую переменную errorMessage
                         return SizedBox(

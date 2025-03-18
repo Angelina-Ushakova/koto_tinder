@@ -114,9 +114,9 @@ class _HomeScreenState extends State<HomeScreen>
   void _animateSwipe(bool isLike) {
     // Направление свайпа
     final double endPosition =
-    isLike
-        ? MediaQuery.of(context).size.width
-        : -MediaQuery.of(context).size.width;
+        isLike
+            ? MediaQuery.of(context).size.width
+            : -MediaQuery.of(context).size.width;
 
     // Настраиваем анимацию
     _animation = Tween<double>(begin: _dragPosition, end: endPosition).animate(
@@ -225,274 +225,274 @@ class _HomeScreenState extends State<HomeScreen>
         backgroundColor: Theme.of(context).colorScheme.inversePrimary,
       ),
       body:
-      _isLoading
-          ? const Center(child: CircularProgressIndicator())
-          : _currentCat == null
-          ? const Center(child: Text('Не удалось загрузить котика'))
-          : Column(
-        children: [
-          // Счетчик лайков
-          Padding(
-            padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
-            child: Text(
-              'Понравившиеся котики: $_likeCount',
-              style: const TextStyle(
-                fontSize: 18,
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-          ),
-
-          // Основной контент: карточка и кнопки в более компактном размещении
-          Expanded(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 16.0),
-              child: Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+          _isLoading
+              ? const Center(child: CircularProgressIndicator())
+              : _currentCat == null
+              ? const Center(child: Text('Не удалось загрузить котика'))
+              : Column(
                 children: [
-                  // Карточка с котиком
-                  Expanded(
-                    flex:
-                    8, // Отдаем большую часть пространства под карточку
-                    child: Center(
-                      child: GestureDetector(
-                        onHorizontalDragStart: _onDragStart,
-                        onHorizontalDragUpdate: _onDragUpdate,
-                        onHorizontalDragEnd: _onDragEnd,
-                        onTap: _openDetailScreen,
-                        child: Transform.translate(
-                          offset: Offset(_dragPosition, 0),
-                          child: Transform.rotate(
-                            angle:
-                            _dragPosition /
-                                800, // Небольшой поворот для эффекта
-                            child: Stack(
-                              alignment: Alignment.center,
-                              children: [
-                                // Карточка котика
-                                Card(
-                                  elevation: 6,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(
-                                      15,
-                                    ),
-                                  ),
-                                  child: Stack(
-                                    children: [
-                                      // Изображение котика с использованием кеширования
-                                      ClipRRect(
-                                        borderRadius:
-                                        BorderRadius.circular(15),
-                                        child: AspectRatio(
-                                          aspectRatio:
-                                          1.0, // Квадратное соотношение
-                                          child: CachedNetworkImage(
-                                            imageUrl:
-                                            getOptimizedImageUrl(
-                                              _currentCat!.url,
-                                            ),
-                                            fit:
-                                            BoxFit
-                                                .cover, // Обрезать для соответствия квадрату
-                                            placeholder:
-                                                (
-                                                context,
-                                                url,
-                                                ) => Container(
-                                              color:
-                                              Colors.grey[200],
-                                              child: const Center(
-                                                child: Column(
-                                                  mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .center,
-                                                  children: [
-                                                    CircularProgressIndicator(),
-                                                    SizedBox(
-                                                      height: 10,
-                                                    ),
-                                                    Text(
-                                                      'Загрузка котика...',
-                                                      style: TextStyle(
-                                                        color:
-                                                        Colors
-                                                            .grey,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              ),
-                                            ),
-                                            errorWidget: (
-                                                context,
-                                                url,
-                                                error,
-                                                ) {
-                                              // Обрабатываем ошибку без создания неиспользуемой переменной
-                                              return const Center(
-                                                child: Column(
-                                                  mainAxisAlignment:
-                                                  MainAxisAlignment
-                                                      .center,
-                                                  children: [
-                                                    Icon(
-                                                      Icons.error,
-                                                      size: 50,
-                                                      color: Colors.red,
-                                                    ),
-                                                    SizedBox(
-                                                      height: 10,
-                                                    ),
-                                                    Text(
-                                                      'Ошибка загрузки изображения',
-                                                      style: TextStyle(
-                                                        color:
-                                                        Colors.red,
-                                                      ),
-                                                    ),
-                                                  ],
-                                                ),
-                                              );
-                                            },
-                                            // Настройки кеширования
-                                            memCacheWidth: 800,
-                                            maxHeightDiskCache: 800,
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Название породы на полупрозрачном фоне внизу
-                                      Positioned(
-                                        bottom: 0,
-                                        left: 0,
-                                        right: 0,
-                                        child: Container(
-                                          padding:
-                                          const EdgeInsets.symmetric(
-                                            horizontal: 16.0,
-                                            vertical: 12.0,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            borderRadius:
-                                            const BorderRadius.vertical(
-                                              bottom:
-                                              Radius.circular(
-                                                15,
-                                              ),
-                                            ),
-                                            gradient: LinearGradient(
-                                              begin:
-                                              Alignment
-                                                  .bottomCenter,
-                                              end: Alignment.topCenter,
-                                              colors: [
-                                                Colors.black.withAlpha(
-                                                  179,
-                                                ),
-                                                Colors.transparent,
-                                              ],
-                                            ),
-                                          ),
-                                          child: Text(
-                                            _currentCat!.breeds !=
-                                                null &&
-                                                _currentCat!
-                                                    .breeds!
-                                                    .isNotEmpty
-                                                ? _currentCat!
-                                                .breeds![0]
-                                                .name
-                                                : 'Неизвестная порода',
-                                            style: const TextStyle(
-                                              fontSize: 22,
-                                              fontWeight:
-                                              FontWeight.bold,
-                                              color: Colors.white,
-                                            ),
-                                            textAlign: TextAlign.center,
-                                          ),
-                                        ),
-                                      ),
-
-                                      // Оверлей для лайка
-                                      if (_showLikeOverlay)
-                                        Positioned.fill(
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                              BorderRadius.circular(
-                                                15,
-                                              ),
-                                              color: Colors.green
-                                                  .withAlpha(77),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.favorite,
-                                                color: Colors.white,
-                                                size: 80,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-
-                                      // Оверлей для дизлайка
-                                      if (_showDislikeOverlay)
-                                        Positioned.fill(
-                                          child: Container(
-                                            decoration: BoxDecoration(
-                                              borderRadius:
-                                              BorderRadius.circular(
-                                                15,
-                                              ),
-                                              color: Colors.red
-                                                  .withAlpha(77),
-                                            ),
-                                            child: const Center(
-                                              child: Icon(
-                                                Icons.close,
-                                                color: Colors.white,
-                                                size: 80,
-                                              ),
-                                            ),
-                                          ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                        ),
+                  // Счетчик лайков
+                  Padding(
+                    padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
+                    child: Text(
+                      'Понравившиеся котики: $_likeCount',
+                      style: const TextStyle(
+                        fontSize: 18,
+                        fontWeight: FontWeight.bold,
                       ),
                     ),
                   ),
 
-                  // Кнопки лайк/дизлайк сразу под карточкой
+                  // Основной контент: карточка и кнопки в более компактном размещении
                   Expanded(
-                    flex: 2, // Меньшая часть для кнопок
-                    child: Row(
-                      mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-                      children: [
-                        LikeDislikeButton(
-                          icon: Icons.close,
-                          color: Colors.red,
-                          onPressed: _handleDislike,
-                        ),
-                        LikeDislikeButton(
-                          icon: Icons.favorite,
-                          color: Colors.green,
-                          onPressed: _handleLike,
-                        ),
-                      ],
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(horizontal: 16.0),
+                      child: Column(
+                        mainAxisAlignment: MainAxisAlignment.center,
+                        children: [
+                          // Карточка с котиком
+                          Expanded(
+                            flex:
+                                8, // Отдаем большую часть пространства под карточку
+                            child: Center(
+                              child: GestureDetector(
+                                onHorizontalDragStart: _onDragStart,
+                                onHorizontalDragUpdate: _onDragUpdate,
+                                onHorizontalDragEnd: _onDragEnd,
+                                onTap: _openDetailScreen,
+                                child: Transform.translate(
+                                  offset: Offset(_dragPosition, 0),
+                                  child: Transform.rotate(
+                                    angle:
+                                        _dragPosition /
+                                        800, // Небольшой поворот для эффекта
+                                    child: Stack(
+                                      alignment: Alignment.center,
+                                      children: [
+                                        // Карточка котика
+                                        Card(
+                                          elevation: 6,
+                                          shape: RoundedRectangleBorder(
+                                            borderRadius: BorderRadius.circular(
+                                              15,
+                                            ),
+                                          ),
+                                          child: Stack(
+                                            children: [
+                                              // Изображение котика с использованием кеширования
+                                              ClipRRect(
+                                                borderRadius:
+                                                    BorderRadius.circular(15),
+                                                child: AspectRatio(
+                                                  aspectRatio:
+                                                      1.0, // Квадратное соотношение
+                                                  child: CachedNetworkImage(
+                                                    imageUrl:
+                                                        getOptimizedImageUrl(
+                                                          _currentCat!.url,
+                                                        ),
+                                                    fit:
+                                                        BoxFit
+                                                            .cover, // Обрезать для соответствия квадрату
+                                                    placeholder:
+                                                        (
+                                                          context,
+                                                          url,
+                                                        ) => Container(
+                                                          color:
+                                                              Colors.grey[200],
+                                                          child: const Center(
+                                                            child: Column(
+                                                              mainAxisAlignment:
+                                                                  MainAxisAlignment
+                                                                      .center,
+                                                              children: [
+                                                                CircularProgressIndicator(),
+                                                                SizedBox(
+                                                                  height: 10,
+                                                                ),
+                                                                Text(
+                                                                  'Загрузка котика...',
+                                                                  style: TextStyle(
+                                                                    color:
+                                                                        Colors
+                                                                            .grey,
+                                                                  ),
+                                                                ),
+                                                              ],
+                                                            ),
+                                                          ),
+                                                        ),
+                                                    errorWidget: (
+                                                      context,
+                                                      url,
+                                                      error,
+                                                    ) {
+                                                      // Обрабатываем ошибку без создания неиспользуемой переменной
+                                                      return const Center(
+                                                        child: Column(
+                                                          mainAxisAlignment:
+                                                              MainAxisAlignment
+                                                                  .center,
+                                                          children: [
+                                                            Icon(
+                                                              Icons.error,
+                                                              size: 50,
+                                                              color: Colors.red,
+                                                            ),
+                                                            SizedBox(
+                                                              height: 10,
+                                                            ),
+                                                            Text(
+                                                              'Ошибка загрузки изображения',
+                                                              style: TextStyle(
+                                                                color:
+                                                                    Colors.red,
+                                                              ),
+                                                            ),
+                                                          ],
+                                                        ),
+                                                      );
+                                                    },
+                                                    // Настройки кеширования
+                                                    memCacheWidth: 800,
+                                                    maxHeightDiskCache: 800,
+                                                  ),
+                                                ),
+                                              ),
+
+                                              // Название породы на полупрозрачном фоне внизу
+                                              Positioned(
+                                                bottom: 0,
+                                                left: 0,
+                                                right: 0,
+                                                child: Container(
+                                                  padding:
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 16.0,
+                                                        vertical: 12.0,
+                                                      ),
+                                                  decoration: BoxDecoration(
+                                                    borderRadius:
+                                                        const BorderRadius.vertical(
+                                                          bottom:
+                                                              Radius.circular(
+                                                                15,
+                                                              ),
+                                                        ),
+                                                    gradient: LinearGradient(
+                                                      begin:
+                                                          Alignment
+                                                              .bottomCenter,
+                                                      end: Alignment.topCenter,
+                                                      colors: [
+                                                        Colors.black.withAlpha(
+                                                          179,
+                                                        ),
+                                                        Colors.transparent,
+                                                      ],
+                                                    ),
+                                                  ),
+                                                  child: Text(
+                                                    _currentCat!.breeds !=
+                                                                null &&
+                                                            _currentCat!
+                                                                .breeds!
+                                                                .isNotEmpty
+                                                        ? _currentCat!
+                                                            .breeds![0]
+                                                            .name
+                                                        : 'Неизвестная порода',
+                                                    style: const TextStyle(
+                                                      fontSize: 22,
+                                                      fontWeight:
+                                                          FontWeight.bold,
+                                                      color: Colors.white,
+                                                    ),
+                                                    textAlign: TextAlign.center,
+                                                  ),
+                                                ),
+                                              ),
+
+                                              // Оверлей для лайка
+                                              if (_showLikeOverlay)
+                                                Positioned.fill(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            15,
+                                                          ),
+                                                      color: Colors.green
+                                                          .withAlpha(77),
+                                                    ),
+                                                    child: const Center(
+                                                      child: Icon(
+                                                        Icons.favorite,
+                                                        color: Colors.white,
+                                                        size: 80,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+
+                                              // Оверлей для дизлайка
+                                              if (_showDislikeOverlay)
+                                                Positioned.fill(
+                                                  child: Container(
+                                                    decoration: BoxDecoration(
+                                                      borderRadius:
+                                                          BorderRadius.circular(
+                                                            15,
+                                                          ),
+                                                      color: Colors.red
+                                                          .withAlpha(77),
+                                                    ),
+                                                    child: const Center(
+                                                      child: Icon(
+                                                        Icons.close,
+                                                        color: Colors.white,
+                                                        size: 80,
+                                                      ),
+                                                    ),
+                                                  ),
+                                                ),
+                                            ],
+                                          ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              ),
+                            ),
+                          ),
+
+                          // Кнопки лайк/дизлайк сразу под карточкой
+                          Expanded(
+                            flex: 2, // Меньшая часть для кнопок
+                            child: Row(
+                              mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+                              children: [
+                                LikeDislikeButton(
+                                  icon: Icons.close,
+                                  color: Colors.red,
+                                  onPressed: _handleDislike,
+                                ),
+                                LikeDislikeButton(
+                                  icon: Icons.favorite,
+                                  color: Colors.green,
+                                  onPressed: _handleLike,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ],
               ),
-            ),
-          ),
-        ],
-      ),
     );
   }
 }

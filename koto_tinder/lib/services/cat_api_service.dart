@@ -46,7 +46,7 @@ class CatApiService {
           _cachedCats.clear();
           _cachedCats.addAll(data.map((json) => Cat.fromJson(json)).toList());
           _currentIndex =
-          1; // Используем первого кота сейчас, следующего - при следующем вызове
+              1; // Используем первого кота сейчас, следующего - при следующем вызове
           return _cachedCats[0];
         } else {
           throw Exception('Нет данных о котиках');
