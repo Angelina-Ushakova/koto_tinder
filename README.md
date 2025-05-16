@@ -120,20 +120,20 @@
 
 ## Демонстрация работы приложения
 
-Смотреть: koto_tinder/assets/demo/hw2_like.gif и koto_tinder/assets/demo/no_internet2.gif
+Смотреть: koto_tinder/assets/demo/hw2_like2.0.gif и koto_tinder/assets/demo/no_internet2.0.gif 
 
 <table>
   <tr>
     <td>
-      <img src="https://raw.githubusercontent.com/Angelina-Ushakova/koto_tinder/main/koto_tinder/assets/demo/hw2_like.gif" width="250"/>
+      <img src="https://raw.githubusercontent.com/Angelina-Ushakova/koto_tinder/main/koto_tinder/assets/demo/hw2_like2.0.gif" width="250"/>
     </td>
     <td>
-      <img src="https://raw.githubusercontent.com/Angelina-Ushakova/koto_tinder/main/koto_tinder/assets/demo/no_internet2.gif" width="250"/>
+      <img src="https://raw.githubusercontent.com/Angelina-Ushakova/koto_tinder/main/koto_tinder/assets/demo/no_internet2.0.gif" width="250"/>
     </td>
   </tr>
 </table>
 
-Изначально видеозаписи были гораздо быстрее, но из-за того, что .gif очень тяжёлые - демоснтрация выше может загружаться плохо
+Файлы .gif очень тяжёлые, поэтому демонстрация выше может загружаться плохо..
 
 ## Скачать приложение
 
