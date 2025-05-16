@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:koto_tinder/models/cat.dart';
+import 'package:koto_tinder/domain/entities/cat.dart';
 import 'package:koto_tinder/utils/image_utils.dart';
 import 'package:url_launcher/url_launcher.dart';
 
@@ -46,43 +46,32 @@ class DetailScreen extends StatelessWidget {
                             width: MediaQuery.of(context).size.width - 32,
                             height: MediaQuery.of(context).size.width * 0.5,
                             color: Colors.grey[200],
-                            child: Center(
+                            child: const Center(
+                              child: CircularProgressIndicator(),
+                            ),
+                          ),
+                      errorWidget:
+                          (context, url, error) => SizedBox(
+                            width: MediaQuery.of(context).size.width - 32,
+                            height: MediaQuery.of(context).size.width * 0.5,
+                            child: const Center(
                               child: Column(
                                 mainAxisAlignment: MainAxisAlignment.center,
                                 children: [
-                                  const CircularProgressIndicator(),
-                                  const SizedBox(height: 10),
+                                  Icon(
+                                    Icons.error,
+                                    size: 50,
+                                    color: Colors.red,
+                                  ),
+                                  SizedBox(height: 10),
                                   Text(
-                                    'Загрузка изображения...',
-                                    style: TextStyle(color: Colors.grey[600]),
+                                    'Ошибка загрузки изображения',
+                                    style: TextStyle(color: Colors.red),
                                   ),
                                 ],
                               ),
                             ),
                           ),
-                      errorWidget: (context, url, error) {
-                        // Удаляем неиспользуемую переменную errorMessage
-                        return SizedBox(
-                          width: MediaQuery.of(context).size.width - 32,
-                          height: MediaQuery.of(context).size.width * 0.5,
-                          child: const Center(
-                            child: Column(
-                              mainAxisAlignment: MainAxisAlignment.center,
-                              children: [
-                                Icon(Icons.error, size: 50, color: Colors.red),
-                                SizedBox(height: 10),
-                                Text(
-                                  'Ошибка загрузки изображения',
-                                  style: TextStyle(color: Colors.red),
-                                ),
-                              ],
-                            ),
-                          ),
-                        );
-                      },
-                      // Настройки кеширования
-                      memCacheWidth: 800,
-                      maxHeightDiskCache: 800,
                     ),
                   ),
                 ),
@@ -123,6 +112,13 @@ class DetailScreen extends StatelessWidget {
                       'Продолжительность жизни:',
                       breed.lifeSpan ?? 'Нет данных',
                     ),
+
+                    // Отображаем дату лайка, если она есть
+                    if (cat.likedAt != null)
+                      _buildInfoRow(
+                        'Дата лайка:',
+                        '${cat.likedAt!.day}.${cat.likedAt!.month}.${cat.likedAt!.year} ${cat.likedAt!.hour}:${cat.likedAt!.minute.toString().padLeft(2, '0')}',
+                      ),
 
                     if (breed.wikipediaUrl != null) ...[
                       const SizedBox(height: 16),
@@ -178,7 +174,7 @@ class DetailScreen extends StatelessWidget {
     );
   }
 
-  // Выделено в отдельный метод для решения проблемы с BuildContext через async gap
+  // Открытие Wikipedia в браузере
   void _launchWikipedia(BuildContext context, String url) async {
     final Uri uri = Uri.parse(url);
     if (!await launchUrl(uri)) {

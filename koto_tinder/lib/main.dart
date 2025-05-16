@@ -1,7 +1,11 @@
 import 'package:flutter/material.dart';
-import 'package:koto_tinder/screens/home_screen.dart';
+import 'package:koto_tinder/di/service_locator.dart';
+import 'package:koto_tinder/presentation/screens/home_screen.dart';
 
 void main() {
+  // Инициализируем сервис-локатор
+  setupServiceLocator();
+
   runApp(const MyApp());
 }
 

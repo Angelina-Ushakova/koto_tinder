@@ -1,9 +1,15 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
-import 'package:koto_tinder/models/cat.dart';
-import 'package:koto_tinder/services/cat_api_service.dart';
-import 'package:koto_tinder/screens/detail_screen.dart';
-import 'package:koto_tinder/widgets/like_dislike_button.dart';
+import 'package:koto_tinder/di/service_locator.dart';
+import 'package:koto_tinder/domain/entities/cat.dart';
+import 'package:koto_tinder/domain/usecases/get_random_cat.dart';
+import 'package:koto_tinder/domain/usecases/like_cat.dart';
+import 'package:koto_tinder/presentation/blocs/home/home_bloc.dart';
+import 'package:koto_tinder/presentation/screens/detail_screen.dart';
+import 'package:koto_tinder/presentation/screens/liked_cats_screen.dart';
+import 'package:koto_tinder/presentation/widgets/error_dialog.dart';
+import 'package:koto_tinder/presentation/widgets/like_dislike_button.dart';
 import 'package:koto_tinder/utils/image_utils.dart';
 
 class HomeScreen extends StatefulWidget {
@@ -15,18 +21,6 @@ class HomeScreen extends StatefulWidget {
 
 class _HomeScreenState extends State<HomeScreen>
     with SingleTickerProviderStateMixin {
-  // Сервис для API запросов
-  final CatApiService _catApiService = CatApiService();
-
-  // Текущий котик для отображения
-  Cat? _currentCat;
-
-  // Индикатор загрузки
-  bool _isLoading = true;
-
-  // Счетчик лайков
-  int _likeCount = 0;
-
   // Для анимации свайпа
   double _dragPosition = 0;
   AnimationController? _animationController;
@@ -36,9 +30,18 @@ class _HomeScreenState extends State<HomeScreen>
   bool _showLikeOverlay = false;
   bool _showDislikeOverlay = false;
 
+  // Создаем блок
+  late HomeBloc _homeBloc;
+
   @override
   void initState() {
     super.initState();
+
+    // Получаем зависимости через DI
+    _homeBloc = HomeBloc(
+      getRandomCatUseCase: serviceLocator<GetRandomCatUseCase>(),
+      likeCatUseCase: serviceLocator<LikeCatUseCase>(),
+    );
 
     // Инициализируем контроллер анимации
     _animationController = AnimationController(
@@ -47,58 +50,23 @@ class _HomeScreenState extends State<HomeScreen>
     );
 
     // Загружаем первого котика при создании экрана
-    _loadRandomCat();
+    _homeBloc.add(LoadRandomCatEvent());
   }
 
   @override
   void dispose() {
     _animationController?.dispose();
+    _homeBloc.close();
     super.dispose();
   }
 
-  // Метод для загрузки случайного котика
-  Future<void> _loadRandomCat() async {
-    setState(() {
-      _isLoading = true;
-    });
-
-    try {
-      final cat = await _catApiService.getRandomCat();
-      setState(() {
-        _currentCat = cat;
-        _isLoading = false;
-        _dragPosition = 0;
-        _showLikeOverlay = false;
-        _showDislikeOverlay = false;
-      });
-    } catch (e) {
-      // Обрабатываем ошибку без создания неиспользуемой переменной
-      setState(() {
-        _isLoading = false;
-      });
-
-      // Показываем ошибку и предлагаем повторить
-      if (mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(
-            content: Text('Ошибка загрузки: $e'),
-            action: SnackBarAction(
-              label: 'Повторить',
-              onPressed: _loadRandomCat,
-            ),
-          ),
-        );
-      }
-    }
-  }
-
   // Обрабатываем лайк с анимацией
-  void _handleLike() {
+  void _handleLike(Cat cat) {
     setState(() {
       _showLikeOverlay = true;
     });
     // Анимируем свайп вправо и увеличиваем счетчик лайков
-    _animateSwipe(true);
+    _animateSwipe(true, cat);
   }
 
   // Обрабатываем дизлайк с анимацией
@@ -107,11 +75,11 @@ class _HomeScreenState extends State<HomeScreen>
       _showDislikeOverlay = true;
     });
     // Анимируем свайп влево
-    _animateSwipe(false);
+    _animateSwipe(false, null);
   }
 
   // Анимация свайпа
-  void _animateSwipe(bool isLike) {
+  void _animateSwipe(bool isLike, Cat? cat) {
     // Направление свайпа
     final double endPosition =
         isLike
@@ -133,12 +101,16 @@ class _HomeScreenState extends State<HomeScreen>
     // По завершению анимации загружаем нового котика
     _animationController?.reset();
     _animationController?.forward().then((_) {
-      if (isLike) {
-        setState(() {
-          _likeCount++;
-        });
+      if (isLike && cat != null) {
+        _homeBloc.add(LikeCatEvent(cat));
+      } else {
+        _homeBloc.add(DislikeCatEvent());
       }
-      _loadRandomCat();
+      setState(() {
+        _dragPosition = 0;
+        _showLikeOverlay = false;
+        _showDislikeOverlay = false;
+      });
     });
   }
 
@@ -167,7 +139,7 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // Обработка завершения перетаскивания
-  void _onDragEnd(DragEndDetails details) {
+  void _onDragEnd(DragEndDetails details, Cat cat) {
     // Определяем скорость свайпа
     final double velocity = details.velocity.pixelsPerSecond.dx;
     final double screenWidth = MediaQuery.of(context).size.width;
@@ -178,7 +150,7 @@ class _HomeScreenState extends State<HomeScreen>
     if (velocity.abs() > 1000 || _dragPosition.abs() > threshold) {
       // Если свайп вправо
       if (_dragPosition > 0 || velocity > 1000) {
-        _handleLike();
+        _handleLike(cat);
       } else {
         // Если свайп влево
         _handleDislike();
@@ -206,36 +178,60 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // Открываем экран с детальной информацией
-  void _openDetailScreen() {
-    if (_currentCat != null) {
-      Navigator.push(
-        context,
-        MaterialPageRoute(
-          builder: (context) => DetailScreen(cat: _currentCat!),
-        ),
-      );
-    }
+  void _openDetailScreen(Cat cat) {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => DetailScreen(cat: cat)),
+    );
+  }
+
+  // Открываем экран с лайкнутыми котиками
+  void _openLikedCatsScreen() {
+    Navigator.push(
+      context,
+      MaterialPageRoute(builder: (context) => const LikedCatsScreen()),
+    );
   }
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('КотоТиндер'),
-        backgroundColor: Theme.of(context).colorScheme.inversePrimary,
-      ),
-      body:
-          _isLoading
-              ? const Center(child: CircularProgressIndicator())
-              : _currentCat == null
-              ? const Center(child: Text('Не удалось загрузить котика'))
-              : Column(
+    return BlocProvider(
+      create: (context) => _homeBloc,
+      child: Scaffold(
+        appBar: AppBar(
+          title: const Text('КотоТиндер'),
+          backgroundColor: Theme.of(context).colorScheme.inversePrimary,
+          actions: [
+            IconButton(
+              icon: const Icon(Icons.favorite),
+              onPressed: _openLikedCatsScreen,
+              tooltip: 'Понравившиеся котики',
+            ),
+          ],
+        ),
+        body: BlocConsumer<HomeBloc, HomeState>(
+          listener: (context, state) {
+            if (state is HomeErrorState) {
+              showErrorDialog(
+                context,
+                state.message,
+                () => _homeBloc.add(
+                  RetryEvent(),
+                ), // Используем RetryEvent вместо LoadRandomCatEvent
+              );
+            }
+          },
+          builder: (context, state) {
+            if (state is HomeLoadingState) {
+              return const Center(child: CircularProgressIndicator());
+            } else if (state is HomeLoadedState) {
+              return Column(
                 children: [
                   // Счетчик лайков
                   Padding(
                     padding: const EdgeInsets.only(top: 16.0, bottom: 8.0),
                     child: Text(
-                      'Понравившиеся котики: $_likeCount',
+                      'Понравившиеся котики: ${state.likeCount}',
                       style: const TextStyle(
                         fontSize: 18,
                         fontWeight: FontWeight.bold,
@@ -243,7 +239,7 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
 
-                  // Основной контент: карточка и кнопки в более компактном размещении
+                  // Основной контент: карточка и кнопки
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 16.0),
@@ -258,8 +254,9 @@ class _HomeScreenState extends State<HomeScreen>
                               child: GestureDetector(
                                 onHorizontalDragStart: _onDragStart,
                                 onHorizontalDragUpdate: _onDragUpdate,
-                                onHorizontalDragEnd: _onDragEnd,
-                                onTap: _openDetailScreen,
+                                onHorizontalDragEnd:
+                                    (details) => _onDragEnd(details, state.cat),
+                                onTap: () => _openDetailScreen(state.cat),
                                 child: Transform.translate(
                                   offset: Offset(_dragPosition, 0),
                                   child: Transform.rotate(
@@ -289,7 +286,7 @@ class _HomeScreenState extends State<HomeScreen>
                                                   child: CachedNetworkImage(
                                                     imageUrl:
                                                         getOptimizedImageUrl(
-                                                          _currentCat!.url,
+                                                          state.cat.url,
                                                         ),
                                                     fit:
                                                         BoxFit
@@ -302,61 +299,26 @@ class _HomeScreenState extends State<HomeScreen>
                                                           color:
                                                               Colors.grey[200],
                                                           child: const Center(
-                                                            child: Column(
-                                                              mainAxisAlignment:
-                                                                  MainAxisAlignment
-                                                                      .center,
-                                                              children: [
+                                                            child:
                                                                 CircularProgressIndicator(),
-                                                                SizedBox(
-                                                                  height: 10,
-                                                                ),
-                                                                Text(
-                                                                  'Загрузка котика...',
-                                                                  style: TextStyle(
-                                                                    color:
-                                                                        Colors
-                                                                            .grey,
-                                                                  ),
-                                                                ),
-                                                              ],
-                                                            ),
                                                           ),
                                                         ),
-                                                    errorWidget: (
-                                                      context,
-                                                      url,
-                                                      error,
-                                                    ) {
-                                                      // Обрабатываем ошибку без создания неиспользуемой переменной
-                                                      return const Center(
-                                                        child: Column(
-                                                          mainAxisAlignment:
-                                                              MainAxisAlignment
-                                                                  .center,
-                                                          children: [
-                                                            Icon(
+                                                    errorWidget:
+                                                        (
+                                                          context,
+                                                          url,
+                                                          error,
+                                                        ) => Container(
+                                                          color:
+                                                              Colors.grey[200],
+                                                          child: const Center(
+                                                            child: Icon(
                                                               Icons.error,
                                                               size: 50,
                                                               color: Colors.red,
                                                             ),
-                                                            SizedBox(
-                                                              height: 10,
-                                                            ),
-                                                            Text(
-                                                              'Ошибка загрузки изображения',
-                                                              style: TextStyle(
-                                                                color:
-                                                                    Colors.red,
-                                                              ),
-                                                            ),
-                                                          ],
+                                                          ),
                                                         ),
-                                                      );
-                                                    },
-                                                    // Настройки кеширования
-                                                    memCacheWidth: 800,
-                                                    maxHeightDiskCache: 800,
                                                   ),
                                                 ),
                                               ),
@@ -394,12 +356,13 @@ class _HomeScreenState extends State<HomeScreen>
                                                     ),
                                                   ),
                                                   child: Text(
-                                                    _currentCat!.breeds !=
-                                                                null &&
-                                                            _currentCat!
+                                                    state.cat.breeds != null &&
+                                                            state
+                                                                .cat
                                                                 .breeds!
                                                                 .isNotEmpty
-                                                        ? _currentCat!
+                                                        ? state
+                                                            .cat
                                                             .breeds![0]
                                                             .name
                                                         : 'Неизвестная порода',
@@ -482,7 +445,7 @@ class _HomeScreenState extends State<HomeScreen>
                                 LikeDislikeButton(
                                   icon: Icons.favorite,
                                   color: Colors.green,
-                                  onPressed: _handleLike,
+                                  onPressed: () => _handleLike(state.cat),
                                 ),
                               ],
                             ),
@@ -492,7 +455,18 @@ class _HomeScreenState extends State<HomeScreen>
                     ),
                   ),
                 ],
-              ),
+              );
+            } else {
+              return Center(
+                child: TextButton(
+                  onPressed: () => _homeBloc.add(LoadRandomCatEvent()),
+                  child: const Text('Загрузить котика'),
+                ),
+              );
+            }
+          },
+        ),
+      ),
     );
   }
 }
