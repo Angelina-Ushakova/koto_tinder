@@ -106,6 +106,7 @@
 
 ## Демонстрация работы приложения
 
+Смотреть: koto_tinder/assets/demo/hw2_like.gif и koto_tinder/assets/demo/no_internet2.gif
 ![Демонстрация](https://raw.githubusercontent.com/Angelina-Ushakova/koto_tinder/main/koto_tinder/assets/demo/hw2_like.gif)
 ![Демонстрация2](https://raw.githubusercontent.com/Angelina-Ushakova/koto_tinder/main/koto_tinder/assets/demo/no_internet2.gif)
 
