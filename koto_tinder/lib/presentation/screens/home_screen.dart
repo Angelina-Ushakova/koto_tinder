@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:koto_tinder/data/datasources/connectivity_service.dart';
+import 'package:koto_tinder/data/datasources/preferences_datasource.dart';
 import 'package:koto_tinder/di/service_locator.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
 import 'package:koto_tinder/domain/usecases/get_random_cat.dart';
@@ -41,7 +43,47 @@ class _HomeScreenState extends State<HomeScreen>
     _homeBloc = HomeBloc(
       getRandomCatUseCase: serviceLocator<GetRandomCatUseCase>(),
       likeCatUseCase: serviceLocator<LikeCatUseCase>(),
+      preferencesDatasource: serviceLocator<PreferencesDatasource>(),
     );
+
+    // Простой мониторинг сети
+    final connectivityService = serviceLocator<ConnectivityService>();
+    connectivityService.connectivityStream.listen((isConnected) {
+      if (mounted) {
+        if (!isConnected) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.wifi_off, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Работаем в оффлайн-режиме'),
+                ],
+              ),
+              backgroundColor: Colors.orange,
+              duration: Duration(seconds: 4),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        } else {
+          // Показываем уведомление о восстановлении соединения
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Row(
+                children: [
+                  Icon(Icons.wifi, color: Colors.white),
+                  SizedBox(width: 8),
+                  Text('Интернет восстановлен'),
+                ],
+              ),
+              backgroundColor: Colors.green,
+              duration: Duration(seconds: 2),
+              behavior: SnackBarBehavior.floating,
+            ),
+          );
+        }
+      }
+    });
 
     // Инициализируем контроллер анимации
     _animationController = AnimationController(
@@ -82,9 +124,9 @@ class _HomeScreenState extends State<HomeScreen>
   void _animateSwipe(bool isLike, Cat? cat) {
     // Направление свайпа
     final double endPosition =
-        isLike
-            ? MediaQuery.of(context).size.width
-            : -MediaQuery.of(context).size.width;
+    isLike
+        ? MediaQuery.of(context).size.width
+        : -MediaQuery.of(context).size.width;
 
     // Настраиваем анимацию
     _animation = Tween<double>(begin: _dragPosition, end: endPosition).animate(
@@ -215,7 +257,7 @@ class _HomeScreenState extends State<HomeScreen>
               showErrorDialog(
                 context,
                 state.message,
-                () => _homeBloc.add(
+                    () => _homeBloc.add(
                   RetryEvent(),
                 ), // Используем RetryEvent вместо LoadRandomCatEvent
               );
@@ -249,7 +291,7 @@ class _HomeScreenState extends State<HomeScreen>
                           // Карточка с котиком
                           Expanded(
                             flex:
-                                8, // Отдаем большую часть пространства под карточку
+                            8, // Отдаем большую часть пространства под карточку
                             child: Center(
                               child: GestureDetector(
                                 onHorizontalDragStart: _onDragStart,
@@ -261,7 +303,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   offset: Offset(_dragPosition, 0),
                                   child: Transform.rotate(
                                     angle:
-                                        _dragPosition /
+                                    _dragPosition /
                                         800, // Небольшой поворот для эффекта
                                     child: Stack(
                                       alignment: Alignment.center,
@@ -279,46 +321,43 @@ class _HomeScreenState extends State<HomeScreen>
                                               // Изображение котика с использованием кеширования
                                               ClipRRect(
                                                 borderRadius:
-                                                    BorderRadius.circular(15),
+                                                BorderRadius.circular(15),
                                                 child: AspectRatio(
                                                   aspectRatio:
-                                                      1.0, // Квадратное соотношение
+                                                  1.0, // Квадратное соотношение
                                                   child: CachedNetworkImage(
-                                                    imageUrl:
-                                                        getOptimizedImageUrl(
-                                                          state.cat.url,
-                                                        ),
-                                                    fit:
-                                                        BoxFit
-                                                            .cover, // Обрезать для соответствия квадрату
-                                                    placeholder:
-                                                        (
-                                                          context,
-                                                          url,
-                                                        ) => Container(
-                                                          color:
-                                                              Colors.grey[200],
-                                                          child: const Center(
-                                                            child:
-                                                                CircularProgressIndicator(),
+                                                    imageUrl: getOptimizedImageUrl(state.cat.url),
+                                                    fit: BoxFit.cover,
+                                                    memCacheWidth: 400,
+                                                    memCacheHeight: 400,
+                                                    placeholder: (context, url) => Container(
+                                                      color: Colors.grey[200],
+                                                      child: const Center(
+                                                        child: CircularProgressIndicator(),
+                                                      ),
+                                                    ),
+                                                    errorWidget: (context, url, error) => Container(
+                                                      color: Colors.grey[200],
+                                                      child: Column(
+                                                        mainAxisAlignment: MainAxisAlignment.center,
+                                                        children: [
+                                                          Icon(
+                                                            Icons.wifi_off,
+                                                            size: 50,
+                                                            color: Colors.grey[600],
                                                           ),
-                                                        ),
-                                                    errorWidget:
-                                                        (
-                                                          context,
-                                                          url,
-                                                          error,
-                                                        ) => Container(
-                                                          color:
-                                                              Colors.grey[200],
-                                                          child: const Center(
-                                                            child: Icon(
-                                                              Icons.error,
-                                                              size: 50,
-                                                              color: Colors.red,
+                                                          const SizedBox(height: 8),
+                                                          Text(
+                                                            'Фото недоступно\nбез интернета',
+                                                            textAlign: TextAlign.center,
+                                                            style: TextStyle(
+                                                              color: Colors.grey[600],
+                                                              fontSize: 14,
                                                             ),
                                                           ),
-                                                        ),
+                                                        ],
+                                                      ),
+                                                    ),
                                                   ),
                                                 ),
                                               ),
@@ -330,22 +369,22 @@ class _HomeScreenState extends State<HomeScreen>
                                                 right: 0,
                                                 child: Container(
                                                   padding:
-                                                      const EdgeInsets.symmetric(
-                                                        horizontal: 16.0,
-                                                        vertical: 12.0,
-                                                      ),
+                                                  const EdgeInsets.symmetric(
+                                                    horizontal: 16.0,
+                                                    vertical: 12.0,
+                                                  ),
                                                   decoration: BoxDecoration(
                                                     borderRadius:
-                                                        const BorderRadius.vertical(
-                                                          bottom:
-                                                              Radius.circular(
-                                                                15,
-                                                              ),
-                                                        ),
+                                                    const BorderRadius.vertical(
+                                                      bottom:
+                                                      Radius.circular(
+                                                        15,
+                                                      ),
+                                                    ),
                                                     gradient: LinearGradient(
                                                       begin:
-                                                          Alignment
-                                                              .bottomCenter,
+                                                      Alignment
+                                                          .bottomCenter,
                                                       end: Alignment.topCenter,
                                                       colors: [
                                                         Colors.black.withAlpha(
@@ -357,19 +396,19 @@ class _HomeScreenState extends State<HomeScreen>
                                                   ),
                                                   child: Text(
                                                     state.cat.breeds != null &&
-                                                            state
-                                                                .cat
-                                                                .breeds!
-                                                                .isNotEmpty
-                                                        ? state
+                                                        state
                                                             .cat
-                                                            .breeds![0]
-                                                            .name
+                                                            .breeds!
+                                                            .isNotEmpty
+                                                        ? state
+                                                        .cat
+                                                        .breeds![0]
+                                                        .name
                                                         : 'Неизвестная порода',
                                                     style: const TextStyle(
                                                       fontSize: 22,
                                                       fontWeight:
-                                                          FontWeight.bold,
+                                                      FontWeight.bold,
                                                       color: Colors.white,
                                                     ),
                                                     textAlign: TextAlign.center,
@@ -383,9 +422,9 @@ class _HomeScreenState extends State<HomeScreen>
                                                   child: Container(
                                                     decoration: BoxDecoration(
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            15,
-                                                          ),
+                                                      BorderRadius.circular(
+                                                        15,
+                                                      ),
                                                       color: Colors.green
                                                           .withAlpha(77),
                                                     ),
@@ -405,9 +444,9 @@ class _HomeScreenState extends State<HomeScreen>
                                                   child: Container(
                                                     decoration: BoxDecoration(
                                                       borderRadius:
-                                                          BorderRadius.circular(
-                                                            15,
-                                                          ),
+                                                      BorderRadius.circular(
+                                                        15,
+                                                      ),
                                                       color: Colors.red
                                                           .withAlpha(77),
                                                     ),

@@ -8,7 +8,7 @@ String getOptimizedImageUrl(String originalUrl) {
     // Для веб используем прокси
     return 'https://api.allorigins.win/raw?url=${Uri.encodeComponent(originalUrl)}';
   } else {
-    // Для мобильных платформ используем прямую ссылку
+    // Для мобильных платформ используем прямую ссылку БЕЗ ПРОКСИ
     return originalUrl;
   }
 }

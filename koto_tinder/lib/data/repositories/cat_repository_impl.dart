@@ -1,14 +1,16 @@
 import 'package:koto_tinder/data/datasources/cat_api_datasource.dart';
+import 'package:koto_tinder/data/datasources/cat_local_datasource.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
 import 'package:koto_tinder/domain/repositories/cat_repository.dart';
 
 class CatRepositoryImpl implements CatRepository {
   final CatApiDatasource catApiDatasource;
+  final CatLocalDatasource catLocalDatasource;
 
-  // Хранилище для лайкнутых котиков (только в памяти)
-  final List<Cat> _likedCats = [];
-
-  CatRepositoryImpl({required this.catApiDatasource});
+  CatRepositoryImpl({
+    required this.catApiDatasource,
+    required this.catLocalDatasource,
+  });
 
   @override
   Future<Cat> getRandomCat() async {
@@ -22,28 +24,20 @@ class CatRepositoryImpl implements CatRepository {
 
   @override
   Future<List<Cat>> getLikedCats() async {
-    // Сортируем по времени лайка (сначала новые)
-    _likedCats.sort(
-      (a, b) =>
-          (b.likedAt ?? DateTime.now()).compareTo(a.likedAt ?? DateTime.now()),
-    );
-    return _likedCats;
+    return await catLocalDatasource.getLikedCats();
   }
 
   @override
   Future<void> likeCat(Cat cat) async {
-    // Проверяем, есть ли уже такой котик в списке лайкнутых
-    if (!_likedCats.any((likedCat) => likedCat.id == cat.id)) {
-      // Устанавливаем время лайка, если его нет
-      final likedCat =
-          cat.likedAt == null ? cat.copyWith(likedAt: DateTime.now()) : cat;
-      _likedCats.add(likedCat);
-    }
+    // Устанавливаем время лайка, если его нет
+    final likedCat =
+        cat.likedAt == null ? cat.copyWith(likedAt: DateTime.now()) : cat;
+    await catLocalDatasource.likeCat(likedCat);
   }
 
   @override
   Future<void> removeLikedCat(String catId) async {
-    _likedCats.removeWhere((cat) => cat.id == catId);
+    await catLocalDatasource.removeLikedCat(catId);
   }
 
   @override
@@ -53,36 +47,12 @@ class CatRepositoryImpl implements CatRepository {
 
   @override
   Future<List<String>> getLikedCatBreeds() async {
-    final Set<String> breeds = {};
-
-    for (var cat in _likedCats) {
-      if (cat.breeds != null && cat.breeds!.isNotEmpty) {
-        breeds.add(cat.breeds![0].name);
-      }
-    }
-
-    return breeds.toList()..sort();
+    return await catLocalDatasource.getLikedCatBreeds();
   }
 
   @override
   Future<List<Cat>> getLikedCatsByBreed(String breed) async {
-    if (breed.isEmpty) {
-      return getLikedCats();
-    }
-
-    return _likedCats
-        .where(
-          (cat) =>
-              cat.breeds != null &&
-              cat.breeds!.isNotEmpty &&
-              cat.breeds![0].name == breed,
-        )
-        .toList()
-      ..sort(
-        (a, b) => (b.likedAt ?? DateTime.now()).compareTo(
-          a.likedAt ?? DateTime.now(),
-        ),
-      );
+    return await catLocalDatasource.getLikedCatsByBreed(breed);
   }
 
   @override

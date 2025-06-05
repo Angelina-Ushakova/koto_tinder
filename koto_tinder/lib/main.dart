@@ -1,10 +1,16 @@
 import 'package:flutter/material.dart';
+import 'package:koto_tinder/data/datasources/connectivity_service.dart';
 import 'package:koto_tinder/di/service_locator.dart';
 import 'package:koto_tinder/presentation/screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Инициализируем сервис-локатор
   setupServiceLocator();
+
+  // Инициализируем connectivity service
+  await serviceLocator<ConnectivityService>().initialize();
 
   runApp(const MyApp());
 }

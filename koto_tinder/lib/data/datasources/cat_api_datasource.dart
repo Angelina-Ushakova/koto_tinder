@@ -1,6 +1,8 @@
 import 'dart:convert';
 import 'dart:io';
 import 'package:http/http.dart' as http;
+import 'package:koto_tinder/data/datasources/cat_local_datasource.dart';
+import 'package:koto_tinder/data/datasources/connectivity_service.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
 
 class NetworkException implements Exception {
@@ -17,36 +19,47 @@ class CatApiDatasource {
   static const String _apiKey =
       'live_LzFDe4gFbL7OwJf2uS2mCHgz3vXiJqXCTUNfKOaTCmhQjTzZuGCuituXxusjnKU1';
 
-  // Кэш для хранения ранее загруженных котиков
+  final CatLocalDatasource _localDatasource;
+  final ConnectivityService _connectivityService;
+
+  // Кэш для хранения ранее загруженных котиков в памяти
   final List<Cat> _cachedCats = [];
   int _currentIndex = 0;
   bool _isLoading = false;
 
-  // Метод для проверки соединения
-  Future<bool> _checkNetworkConnection() async {
-    try {
-      final response = await http
-          .get(Uri.parse('https://www.google.com'))
-          .timeout(const Duration(seconds: 5));
-      return response.statusCode == 200;
-    } catch (e) {
-      return false;
-    }
-  }
+  CatApiDatasource({
+    required CatLocalDatasource localDatasource,
+    required ConnectivityService connectivityService,
+  }) : _localDatasource = localDatasource,
+       _connectivityService = connectivityService;
 
   // Метод для получения случайного котика
   Future<Cat> getRandomCat() async {
-    // Проверка соединения с интернетом
-    if (!await _checkNetworkConnection()) {
-      throw NetworkException(
-        'Нет подключения к интернету. Проверьте соединение и попробуйте снова.',
-      );
-    }
+    final bool isConnected = await _connectivityService.isConnected;
 
-    // Если у нас есть кешированные коты и мы не прошли весь список
+    // Если есть интернет, пытаемся загрузить новых котиков
+    if (isConnected) {
+      try {
+        return await _getRandomCatFromApi();
+      } catch (e) {
+        // Если API недоступен, падаем на кэш
+        return await _getRandomCatFromCache();
+      }
+    } else {
+      // Нет интернета - работаем с кэшем
+      return await _getRandomCatFromCache();
+    }
+  }
+
+  // Получение котика из API
+  Future<Cat> _getRandomCatFromApi() async {
+    // Если у нас есть кешированные коты в памяти и мы не прошли весь список
     if (_cachedCats.isNotEmpty && _currentIndex < _cachedCats.length) {
       final cat = _cachedCats[_currentIndex];
       _currentIndex++;
+
+      // Сохраняем в локальную базу данных
+      await _localDatasource.cacheCat(cat);
 
       // Предзагрузка следующей партии, если мы подходим к концу кеша
       if (_currentIndex >= _cachedCats.length - 2) {
@@ -68,12 +81,22 @@ class CatApiDatasource {
         final List<dynamic> data = jsonDecode(response.body);
 
         if (data.isNotEmpty) {
-          // Сохраняем в кеш и сбрасываем индекс
+          // Сохраняем в кеш памяти и сбрасываем индекс
           _cachedCats.clear();
           _cachedCats.addAll(data.map((json) => Cat.fromJson(json)).toList());
-          _currentIndex =
-              1; // Используем первого кота сейчас, следующего - при следующем вызове
-          return _cachedCats[0];
+          _currentIndex = 1;
+
+          final cat = _cachedCats[0];
+
+          // Сохраняем всех котиков в локальную базу данных
+          for (final cachedCat in _cachedCats) {
+            await _localDatasource.cacheCat(cachedCat);
+          }
+
+          // Очищаем старый кэш
+          await _localDatasource.clearOldCachedCats();
+
+          return cat;
         } else {
           throw NetworkException(
             'Нет данных о котиках. Пожалуйста, попробуйте позже.',
@@ -101,6 +124,18 @@ class CatApiDatasource {
     }
   }
 
+  // Получение котика из кэша
+  Future<Cat> _getRandomCatFromCache() async {
+    final cachedCat = await _localDatasource.getRandomCachedCat();
+    if (cachedCat != null) {
+      return cachedCat;
+    } else {
+      throw NetworkException(
+        'Нет сохраненных котиков. Подключитесь к интернету для загрузки новых котиков.',
+      );
+    }
+  }
+
   // Асинхронно предзагружаем следующую партию котиков
   void _preloadMoreCats() async {
     // Если уже идет загрузка или кеш достаточно полон, не делаем ничего
@@ -120,7 +155,13 @@ class CatApiDatasource {
         final List<dynamic> data = jsonDecode(response.body);
         if (data.isNotEmpty) {
           // Добавляем новых котиков в конец кеша
-          _cachedCats.addAll(data.map((json) => Cat.fromJson(json)).toList());
+          final newCats = data.map((json) => Cat.fromJson(json)).toList();
+          _cachedCats.addAll(newCats);
+
+          // Сохраняем в локальную базу данных
+          for (final cat in newCats) {
+            await _localDatasource.cacheCat(cat);
+          }
         }
       }
     } catch (e) {
@@ -132,24 +173,21 @@ class CatApiDatasource {
 
   // Получить список пород (для фильтрации)
   Future<List<String>> getBreeds() async {
-    // Проверка соединения с интернетом
-    if (!await _checkNetworkConnection()) {
-      // Если интернета нет, но у нас есть породы в кэше, возвращаем их
-      if (_cachedCats.isNotEmpty) {
-        final Set<String> cachedBreeds = {};
-        for (var cat in _cachedCats) {
-          if (cat.breeds != null && cat.breeds!.isNotEmpty) {
-            cachedBreeds.add(cat.breeds![0].name);
-          }
+    final bool isConnected = await _connectivityService.isConnected;
+
+    if (!isConnected) {
+      // Если интернета нет, возвращаем породы из кэша
+      final cachedCats = await _localDatasource.getCachedCats();
+      final Set<String> cachedBreeds = {};
+      for (var cat in cachedCats) {
+        if (cat.breeds != null && cat.breeds!.isNotEmpty) {
+          cachedBreeds.add(cat.breeds![0].name);
         }
-        return cachedBreeds.toList()..sort();
       }
-      throw NetworkException(
-        'Нет подключения к интернету. Проверьте соединение и попробуйте снова.',
-      );
+      return cachedBreeds.toList()..sort();
     }
 
-    // Собираем уникальные породы из кешированных котиков
+    // Собираем уникальные породы из кешированных котиков в памяти
     final Set<String> breeds = {};
 
     for (var cat in _cachedCats) {
@@ -175,7 +213,7 @@ class CatApiDatasource {
           }
         }
       } catch (e) {
-        // Если не удалось загрузить списко пород, возвращаем то, что есть
+        // Если не удалось загрузить список пород, возвращаем то, что есть
         if (breeds.isEmpty) {
           throw NetworkException(
             'Ошибка при получении списка пород. Пожалуйста, попробуйте позже.',
