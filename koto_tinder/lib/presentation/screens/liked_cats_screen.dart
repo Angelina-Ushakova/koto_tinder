@@ -24,14 +24,12 @@ class _LikedCatsScreenState extends State<LikedCatsScreen> {
   void initState() {
     super.initState();
 
-    // Получаем зависимости через DI
     _likedCatsBloc = LikedCatsBloc(
       getLikedCatsUseCase: serviceLocator<GetLikedCatsUseCase>(),
       removeLikedCatUseCase: serviceLocator<RemoveLikedCatUseCase>(),
       getBreedsUseCase: serviceLocator<GetBreedsUseCase>(),
     );
 
-    // Загружаем список пород и лайкнутых котиков
     _likedCatsBloc.add(LoadBreedsEvent());
   }
 
@@ -59,17 +57,12 @@ class _LikedCatsScreenState extends State<LikedCatsScreen> {
                 () => _likedCatsBloc.add(LoadLikedCatsEvent()),
               );
             }
-
-            // Когда пользователь удаляет последнего котика текущей породы,
-            // автоматически сбрасываем фильтр
             if (state is LikedCatsLoadedState &&
                 _selectedBreed.isNotEmpty &&
                 state.cats.isEmpty) {
               _selectedBreed = '';
               _likedCatsBloc.add(FilterByBreedEvent(''));
             }
-
-            // Отслеживаем выбранную породу
             if (state is LikedCatsLoadedState) {
               _selectedBreed = state.selectedBreed;
             }
@@ -80,7 +73,6 @@ class _LikedCatsScreenState extends State<LikedCatsScreen> {
             } else if (state is LikedCatsLoadedState) {
               return Column(
                 children: [
-                  // Фильтр по породам
                   if (state.breeds.isNotEmpty)
                     Padding(
                       padding: const EdgeInsets.all(16.0),
@@ -98,15 +90,17 @@ class _LikedCatsScreenState extends State<LikedCatsScreen> {
                                 ? state.breeds.first
                                 : state.selectedBreed,
                         items:
-                            state.breeds.map((breed) {
-                              return DropdownMenuItem<String>(
-                                value: breed,
-                                child: Text(
-                                  breed.isEmpty ? 'Все породы' : breed,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              );
-                            }).toList(),
+                            state.breeds
+                                .map(
+                                  (breed) => DropdownMenuItem<String>(
+                                    value: breed,
+                                    child: Text(
+                                      breed.isEmpty ? 'Все породы' : breed,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                )
+                                .toList(),
                         onChanged: (value) {
                           if (value != null) {
                             _likedCatsBloc.add(FilterByBreedEvent(value));
@@ -114,8 +108,6 @@ class _LikedCatsScreenState extends State<LikedCatsScreen> {
                         },
                       ),
                     ),
-
-                  // Список котиков
                   Expanded(
                     child:
                         state.cats.isEmpty
@@ -147,23 +139,44 @@ class _LikedCatsScreenState extends State<LikedCatsScreen> {
                               itemCount: state.cats.length,
                               itemBuilder: (context, index) {
                                 final cat = state.cats[index];
-                                return CatCard(
-                                  cat: cat,
-                                  showLikedDate: true,
-                                  onTap: () {
-                                    Navigator.push(
-                                      context,
-                                      MaterialPageRoute(
-                                        builder:
-                                            (context) => DetailScreen(cat: cat),
-                                      ),
-                                    );
-                                  },
-                                  onRemove: () {
+                                return Dismissible(
+                                  key: ValueKey(cat.id),
+                                  direction: DismissDirection.endToStart,
+                                  background: Container(
+                                    alignment: Alignment.centerRight,
+                                    color: Colors.red,
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 24,
+                                    ),
+                                    child: const Icon(
+                                      Icons.delete,
+                                      color: Colors.white,
+                                    ),
+                                  ),
+                                  onDismissed: (_) {
                                     _likedCatsBloc.add(
                                       RemoveLikedCatEvent(cat.id),
                                     );
                                   },
+                                  child: CatCard(
+                                    cat: cat,
+                                    showLikedDate: true,
+                                    onTap: () {
+                                      Navigator.push(
+                                        context,
+                                        MaterialPageRoute(
+                                          builder:
+                                              (context) =>
+                                                  DetailScreen(cat: cat),
+                                        ),
+                                      );
+                                    },
+                                    onRemove: () {
+                                      _likedCatsBloc.add(
+                                        RemoveLikedCatEvent(cat.id),
+                                      );
+                                    },
+                                  ),
                                 );
                               },
                             ),

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 import 'package:koto_tinder/data/datasources/cat_local_datasource.dart';
 import 'package:koto_tinder/data/datasources/connectivity_service.dart';
+import 'package:koto_tinder/data/datasources/enhanced_image_cache_service.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
 
 class NetworkException implements Exception {
@@ -21,6 +22,7 @@ class CatApiDatasource {
 
   final CatLocalDatasource _localDatasource;
   final ConnectivityService _connectivityService;
+  final EnhancedImageCacheService _imageCacheService;
 
   // Кэш для хранения ранее загруженных котиков в памяти
   final List<Cat> _cachedCats = [];
@@ -30,8 +32,10 @@ class CatApiDatasource {
   CatApiDatasource({
     required CatLocalDatasource localDatasource,
     required ConnectivityService connectivityService,
+    required EnhancedImageCacheService imageCacheService,
   }) : _localDatasource = localDatasource,
-       _connectivityService = connectivityService;
+       _connectivityService = connectivityService,
+       _imageCacheService = imageCacheService;
 
   // Метод для получения случайного котика
   Future<Cat> getRandomCat() async {
@@ -57,6 +61,9 @@ class CatApiDatasource {
     if (_cachedCats.isNotEmpty && _currentIndex < _cachedCats.length) {
       final cat = _cachedCats[_currentIndex];
       _currentIndex++;
+
+      // Предзагружаем изображение в фоне
+      _imageCacheService.preloadImage(cat.url);
 
       // Сохраняем в локальную базу данных
       await _localDatasource.cacheCat(cat);
@@ -87,6 +94,11 @@ class CatApiDatasource {
           _currentIndex = 1;
 
           final cat = _cachedCats[0];
+
+          // Предзагружаем изображения в фоне
+          for (final cachedCat in _cachedCats) {
+            _imageCacheService.preloadImage(cachedCat.url);
+          }
 
           // Сохраняем всех котиков в локальную базу данных
           for (final cachedCat in _cachedCats) {
@@ -157,6 +169,11 @@ class CatApiDatasource {
           // Добавляем новых котиков в конец кеша
           final newCats = data.map((json) => Cat.fromJson(json)).toList();
           _cachedCats.addAll(newCats);
+
+          // Предзагружаем изображения в фоне
+          for (final cat in newCats) {
+            _imageCacheService.preloadImage(cat.url);
+          }
 
           // Сохраняем в локальную базу данных
           for (final cat in newCats) {

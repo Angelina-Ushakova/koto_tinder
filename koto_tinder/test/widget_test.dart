@@ -1,30 +1,93 @@
-// This is a basic Flutter widget test.
-//
-// To perform an interaction with a widget in your test, use the WidgetTester
-// utility in the flutter_test package. For example, you can send tap and scroll
-// gestures. You can also use WidgetTester to find child widgets in the widget
-// tree, read text, and verify that the values of widget properties are correct.
-
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-
-import 'package:koto_tinder/main.dart';
+import 'package:koto_tinder/presentation/widgets/like_dislike_button.dart';
+import 'package:koto_tinder/presentation/widgets/error_dialog.dart';
 
 void main() {
-  testWidgets('Counter increments smoke test', (WidgetTester tester) async {
-    // Build our app and trigger a frame.
-    await tester.pumpWidget(const MyApp());
+  group('Widget Tests', () {
+    testWidgets('LikeDislikeButton should display icon and respond to tap', (
+      WidgetTester tester,
+    ) async {
+      bool tapped = false;
 
-    // Verify that our counter starts at 0.
-    expect(find.text('0'), findsOneWidget);
-    expect(find.text('1'), findsNothing);
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LikeDislikeButton(
+              icon: Icons.favorite,
+              color: Colors.red,
+              onPressed: () {
+                tapped = true;
+              },
+            ),
+          ),
+        ),
+      );
 
-    // Tap the '+' icon and trigger a frame.
-    await tester.tap(find.byIcon(Icons.add));
-    await tester.pump();
+      // Проверяем, что кнопка отображается
+      expect(find.byType(LikeDislikeButton), findsOneWidget);
+      expect(find.byIcon(Icons.favorite), findsOneWidget);
 
-    // Verify that our counter has incremented.
-    expect(find.text('0'), findsNothing);
-    expect(find.text('1'), findsOneWidget);
+      // Нажимаем на кнопку
+      await tester.tap(find.byType(LikeDislikeButton));
+      await tester.pump();
+
+      // Проверяем, что обработчик вызвался
+      expect(tapped, isTrue);
+    });
+
+    testWidgets('LikeDislikeButton should display correct icon color', (
+      WidgetTester tester,
+    ) async {
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: LikeDislikeButton(
+              icon: Icons.close,
+              color: Colors.green,
+              onPressed: () {},
+            ),
+          ),
+        ),
+      );
+
+      // Находим Icon виджет
+      final iconWidget = tester.widget<Icon>(find.byIcon(Icons.close));
+
+      // Проверяем цвет
+      expect(iconWidget.color, equals(Colors.green));
+    });
+
+    testWidgets('ErrorDialog should display message and buttons', (
+      WidgetTester tester,
+    ) async {
+      bool retryPressed = false;
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: ErrorDialog(
+              message: 'Test error message',
+              onRetry: () {
+                retryPressed = true;
+              },
+            ),
+          ),
+        ),
+      );
+
+      // Проверяем, что диалог отображается
+      expect(find.text('Ошибка'), findsOneWidget);
+      expect(find.text('Test error message'), findsOneWidget);
+      expect(find.text('Закрыть'), findsOneWidget);
+      expect(find.text('Повторить'), findsOneWidget);
+
+      // Нажимаем на кнопку "Повторить"
+      await tester.tap(find.text('Повторить'));
+      await tester.pump();
+
+      // Проверяем, что обработчик вызвался
+      expect(retryPressed, isTrue);
+    });
   });
 }

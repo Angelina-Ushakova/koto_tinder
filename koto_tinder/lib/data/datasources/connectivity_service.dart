@@ -20,7 +20,7 @@ class ConnectivityService {
     final isConnected = initialResult != ConnectivityResult.none;
 
     // Добавляем небольшую задержку для инициализации UI
-    Future.delayed(Duration(milliseconds: 1000), () {
+    Future.delayed(const Duration(milliseconds: 1000), () {
       _connectivityController?.add(isConnected);
     });
 

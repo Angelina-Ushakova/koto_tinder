@@ -1,8 +1,8 @@
 import 'package:flutter_bloc/flutter_bloc.dart';
-import 'package:koto_tinder/data/datasources/preferences_datasource.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
 import 'package:koto_tinder/domain/usecases/get_random_cat.dart';
 import 'package:koto_tinder/domain/usecases/like_cat.dart';
+import 'package:koto_tinder/domain/usecases/get_liked_cats.dart';
 
 // События
 abstract class HomeEvent {}
@@ -18,6 +18,8 @@ class LikeCatEvent extends HomeEvent {
 class DislikeCatEvent extends HomeEvent {}
 
 class RetryEvent extends HomeEvent {}
+
+class UpdateLikeCountEvent extends HomeEvent {}
 
 // Состояния
 abstract class HomeState {}
@@ -41,25 +43,18 @@ class HomeErrorState extends HomeState {
 class HomeBloc extends Bloc<HomeEvent, HomeState> {
   final GetRandomCatUseCase getRandomCatUseCase;
   final LikeCatUseCase likeCatUseCase;
-  final PreferencesDatasource preferencesDatasource;
-  int _likeCount = 0;
+  final GetLikedCatsUseCase getLikedCatsUseCase;
 
   HomeBloc({
     required this.getRandomCatUseCase,
     required this.likeCatUseCase,
-    required this.preferencesDatasource,
+    required this.getLikedCatsUseCase,
   }) : super(HomeLoadingState()) {
     on<LoadRandomCatEvent>(_onLoadRandomCat);
     on<LikeCatEvent>(_onLikeCat);
     on<DislikeCatEvent>(_onDislikeCat);
     on<RetryEvent>(_onRetry);
-
-    // Загружаем счетчик при создании
-    _loadLikeCount();
-  }
-
-  Future<void> _loadLikeCount() async {
-    _likeCount = await preferencesDatasource.getLikeCount();
+    on<UpdateLikeCountEvent>(_onUpdateLikeCount);
   }
 
   Future<void> _onLoadRandomCat(
@@ -69,9 +64,9 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
     emit(HomeLoadingState());
     try {
       final cat = await getRandomCatUseCase.execute();
-      // Обновляем счетчик при загрузке
-      _likeCount = await preferencesDatasource.getLikeCount();
-      emit(HomeLoadedState(cat: cat, likeCount: _likeCount));
+      // Получаем РЕАЛЬНОЕ количество лайкнутых котиков из базы данных
+      final likedCats = await getLikedCatsUseCase.execute();
+      emit(HomeLoadedState(cat: cat, likeCount: likedCats.length));
     } catch (e) {
       emit(HomeErrorState(e.toString()));
     }
@@ -80,8 +75,7 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
   Future<void> _onLikeCat(LikeCatEvent event, Emitter<HomeState> emit) async {
     try {
       await likeCatUseCase.execute(event.cat);
-      await preferencesDatasource.incrementLikeCount();
-      _likeCount = await preferencesDatasource.getLikeCount();
+      // После лайка загружаем нового котика (и счетчик обновится автоматически)
       add(LoadRandomCatEvent());
     } catch (e) {
       emit(HomeErrorState(e.toString()));
@@ -97,5 +91,23 @@ class HomeBloc extends Bloc<HomeEvent, HomeState> {
 
   Future<void> _onRetry(RetryEvent event, Emitter<HomeState> emit) async {
     add(LoadRandomCatEvent());
+  }
+
+  Future<void> _onUpdateLikeCount(
+    UpdateLikeCountEvent event,
+    Emitter<HomeState> emit,
+  ) async {
+    // Обновляем только счетчик, не трогая текущего котика
+    if (state is HomeLoadedState) {
+      final currentState = state as HomeLoadedState;
+      try {
+        final likedCats = await getLikedCatsUseCase.execute();
+        emit(
+          HomeLoadedState(cat: currentState.cat, likeCount: likedCats.length),
+        );
+      } catch (e) {
+        // Если ошибка, оставляем состояние как есть
+      }
+    }
   }
 }

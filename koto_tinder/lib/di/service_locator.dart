@@ -4,6 +4,7 @@ import 'package:koto_tinder/data/datasources/cat_local_datasource.dart';
 import 'package:koto_tinder/data/datasources/connectivity_service.dart';
 import 'package:koto_tinder/data/datasources/database_helper.dart';
 import 'package:koto_tinder/data/datasources/preferences_datasource.dart';
+import 'package:koto_tinder/data/datasources/enhanced_image_cache_service.dart';
 import 'package:koto_tinder/data/repositories/cat_repository_impl.dart';
 import 'package:koto_tinder/domain/repositories/cat_repository.dart';
 import 'package:koto_tinder/domain/usecases/get_breeds.dart';
@@ -28,6 +29,10 @@ void setupServiceLocator() {
     () => PreferencesDatasource(),
   );
 
+  serviceLocator.registerLazySingleton<EnhancedImageCacheService>(
+    () => EnhancedImageCacheService(),
+  );
+
   // Datasources
   serviceLocator.registerLazySingleton<CatLocalDatasource>(
     () => CatLocalDatasource(databaseHelper: serviceLocator<DatabaseHelper>()),
@@ -37,6 +42,7 @@ void setupServiceLocator() {
     () => CatApiDatasource(
       localDatasource: serviceLocator<CatLocalDatasource>(),
       connectivityService: serviceLocator<ConnectivityService>(),
+      imageCacheService: serviceLocator<EnhancedImageCacheService>(),
     ),
   );
 

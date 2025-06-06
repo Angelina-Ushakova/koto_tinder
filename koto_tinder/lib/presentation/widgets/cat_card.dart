@@ -1,8 +1,7 @@
 import 'package:flutter/material.dart';
-import 'package:cached_network_image/cached_network_image.dart';
 import 'package:intl/intl.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
-import 'package:koto_tinder/utils/image_utils.dart';
+import 'package:koto_tinder/presentation/widgets/cached_cat_image.dart';
 
 class CatCard extends StatelessWidget {
   final Cat cat;
@@ -39,27 +38,19 @@ class CatCard extends StatelessWidget {
                   ),
                   child: AspectRatio(
                     aspectRatio: 1.5,
-                    child: CachedNetworkImage(
-                      imageUrl: getOptimizedImageUrl(cat.url),
+                    child: CachedCatImage(
+                      imageUrl: cat.url,
                       fit: BoxFit.cover,
-                      placeholder:
-                          (context, url) => Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: CircularProgressIndicator(),
-                            ),
-                          ),
-                      errorWidget:
-                          (context, url, error) => Container(
-                            color: Colors.grey[200],
-                            child: const Center(
-                              child: Icon(
-                                Icons.error,
-                                color: Colors.red,
-                                size: 40,
-                              ),
-                            ),
-                          ),
+                      placeholder: Container(
+                        color: Colors.grey[200],
+                        child: const Center(child: CircularProgressIndicator()),
+                      ),
+                      errorWidget: Container(
+                        color: Colors.grey[200],
+                        child: const Center(
+                          child: Icon(Icons.error, color: Colors.red, size: 40),
+                        ),
+                      ),
                     ),
                   ),
                 ),

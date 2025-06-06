@@ -12,3 +12,9 @@ String getOptimizedImageUrl(String originalUrl) {
     return originalUrl;
   }
 }
+
+/// Обрезает query и fragment — для уникального ключа кэширования картинки кота
+String normalizeCatImageUrl(String url) {
+  final uri = Uri.parse(url);
+  return '${uri.scheme}://${uri.host}${uri.path}';
+}

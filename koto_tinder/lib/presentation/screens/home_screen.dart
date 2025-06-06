@@ -1,18 +1,22 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:cached_network_image/cached_network_image.dart';
+import 'package:provider/provider.dart';
 import 'package:koto_tinder/data/datasources/connectivity_service.dart';
-import 'package:koto_tinder/data/datasources/preferences_datasource.dart';
+import 'package:koto_tinder/data/datasources/enhanced_image_cache_service.dart';
 import 'package:koto_tinder/di/service_locator.dart';
 import 'package:koto_tinder/domain/entities/cat.dart';
 import 'package:koto_tinder/domain/usecases/get_random_cat.dart';
 import 'package:koto_tinder/domain/usecases/like_cat.dart';
+import 'package:koto_tinder/domain/usecases/get_liked_cats.dart';
 import 'package:koto_tinder/presentation/blocs/home/home_bloc.dart';
 import 'package:koto_tinder/presentation/screens/detail_screen.dart';
 import 'package:koto_tinder/presentation/screens/liked_cats_screen.dart';
 import 'package:koto_tinder/presentation/widgets/error_dialog.dart';
 import 'package:koto_tinder/presentation/widgets/like_dislike_button.dart';
+import 'package:koto_tinder/presentation/theme/theme_notifier.dart';
 import 'package:koto_tinder/utils/image_utils.dart';
+import 'dart:io';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -34,6 +38,7 @@ class _HomeScreenState extends State<HomeScreen>
 
   // Создаем блок
   late HomeBloc _homeBloc;
+  late EnhancedImageCacheService _imageCache;
 
   @override
   void initState() {
@@ -43,8 +48,10 @@ class _HomeScreenState extends State<HomeScreen>
     _homeBloc = HomeBloc(
       getRandomCatUseCase: serviceLocator<GetRandomCatUseCase>(),
       likeCatUseCase: serviceLocator<LikeCatUseCase>(),
-      preferencesDatasource: serviceLocator<PreferencesDatasource>(),
+      getLikedCatsUseCase: serviceLocator<GetLikedCatsUseCase>(),
     );
+
+    _imageCache = serviceLocator<EnhancedImageCacheService>();
 
     // Простой мониторинг сети
     final connectivityService = serviceLocator<ConnectivityService>();
@@ -52,7 +59,7 @@ class _HomeScreenState extends State<HomeScreen>
       if (mounted) {
         if (!isConnected) {
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Row(
                 children: [
                   Icon(Icons.wifi_off, color: Colors.white),
@@ -68,7 +75,7 @@ class _HomeScreenState extends State<HomeScreen>
         } else {
           // Показываем уведомление о восстановлении соединения
           ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
+            const SnackBar(
               content: Row(
                 children: [
                   Icon(Icons.wifi, color: Colors.white),
@@ -124,9 +131,9 @@ class _HomeScreenState extends State<HomeScreen>
   void _animateSwipe(bool isLike, Cat? cat) {
     // Направление свайпа
     final double endPosition =
-    isLike
-        ? MediaQuery.of(context).size.width
-        : -MediaQuery.of(context).size.width;
+        isLike
+            ? MediaQuery.of(context).size.width
+            : -MediaQuery.of(context).size.width;
 
     // Настраиваем анимацию
     _animation = Tween<double>(begin: _dragPosition, end: endPosition).animate(
@@ -228,10 +235,77 @@ class _HomeScreenState extends State<HomeScreen>
   }
 
   // Открываем экран с лайкнутыми котиками
-  void _openLikedCatsScreen() {
-    Navigator.push(
+  void _openLikedCatsScreen() async {
+    // Ждем возврата с экрана лайков и обновляем счетчик
+    await Navigator.push(
       context,
       MaterialPageRoute(builder: (context) => const LikedCatsScreen()),
+    );
+
+    // При возврате обновляем счетчик лайков
+    _homeBloc.add(UpdateLikeCountEvent());
+  }
+
+  // Создаём виджет изображения с улучшенным кэшированием
+  Widget _buildCatImage(Cat cat) {
+    return FutureBuilder<String?>(
+      future: _imageCache.getCachedImagePath(cat.url),
+      builder: (context, snapshot) {
+        // Если есть локально кэшированное изображение, показываем его
+        if (snapshot.hasData && snapshot.data != null) {
+          final file = File(snapshot.data!);
+          if (file.existsSync()) {
+            return Image.file(
+              file,
+              fit: BoxFit.cover,
+              errorBuilder: (context, error, stackTrace) {
+                return _buildCachedNetworkImage(cat);
+              },
+            );
+          }
+        }
+
+        // В остальных случаях используем cached_network_image
+        return _buildCachedNetworkImage(cat);
+      },
+    );
+  }
+
+  Widget _buildCachedNetworkImage(Cat cat) {
+    return CachedNetworkImage(
+      imageUrl: getOptimizedImageUrl(cat.url),
+      fit: BoxFit.cover,
+      memCacheWidth: 400,
+      memCacheHeight: 400,
+      placeholder:
+          (context, url) => Container(
+            color: Colors.grey[200],
+            child: const Center(child: CircularProgressIndicator()),
+          ),
+      errorWidget: (context, url, error) {
+        // Пытаемся кэшировать для будущего использования
+        _imageCache.cacheImage(cat.url);
+        return Container(
+          color: Colors.grey[200],
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.wifi_off, size: 50, color: Colors.grey[600]),
+              const SizedBox(height: 8),
+              Text(
+                'Фото недоступно\nбез интернета',
+                textAlign: TextAlign.center,
+                style: TextStyle(color: Colors.grey[600], fontSize: 14),
+              ),
+            ],
+          ),
+        );
+      },
+      // Когда изображение загружено, кэшируем его
+      imageBuilder: (context, imageProvider) {
+        _imageCache.cacheImage(cat.url);
+        return Image(image: imageProvider, fit: BoxFit.cover);
+      },
     );
   }
 
@@ -245,6 +319,21 @@ class _HomeScreenState extends State<HomeScreen>
           backgroundColor: Theme.of(context).colorScheme.inversePrimary,
           actions: [
             IconButton(
+              icon: Icon(
+                Theme.of(context).brightness == Brightness.dark
+                    ? Icons.light_mode
+                    : Icons.dark_mode,
+              ),
+              onPressed: () {
+                final themeNotifier = Provider.of<ThemeNotifier>(
+                  context,
+                  listen: false,
+                );
+                themeNotifier.toggleTheme();
+              },
+              tooltip: 'Переключить тему',
+            ),
+            IconButton(
               icon: const Icon(Icons.favorite),
               onPressed: _openLikedCatsScreen,
               tooltip: 'Понравившиеся котики',
@@ -257,7 +346,7 @@ class _HomeScreenState extends State<HomeScreen>
               showErrorDialog(
                 context,
                 state.message,
-                    () => _homeBloc.add(
+                () => _homeBloc.add(
                   RetryEvent(),
                 ), // Используем RetryEvent вместо LoadRandomCatEvent
               );
@@ -291,7 +380,7 @@ class _HomeScreenState extends State<HomeScreen>
                           // Карточка с котиком
                           Expanded(
                             flex:
-                            8, // Отдаем большую часть пространства под карточку
+                                8, // Отдаем большую часть пространства под карточку
                             child: Center(
                               child: GestureDetector(
                                 onHorizontalDragStart: _onDragStart,
@@ -303,7 +392,7 @@ class _HomeScreenState extends State<HomeScreen>
                                   offset: Offset(_dragPosition, 0),
                                   child: Transform.rotate(
                                     angle:
-                                    _dragPosition /
+                                        _dragPosition /
                                         800, // Небольшой поворот для эффекта
                                     child: Stack(
                                       alignment: Alignment.center,
@@ -318,46 +407,15 @@ class _HomeScreenState extends State<HomeScreen>
                                           ),
                                           child: Stack(
                                             children: [
-                                              // Изображение котика с использованием кеширования
+                                              // Изображение котика - возвращаем оригинальную логику
                                               ClipRRect(
                                                 borderRadius:
-                                                BorderRadius.circular(15),
+                                                    BorderRadius.circular(15),
                                                 child: AspectRatio(
                                                   aspectRatio:
-                                                  1.0, // Квадратное соотношение
-                                                  child: CachedNetworkImage(
-                                                    imageUrl: getOptimizedImageUrl(state.cat.url),
-                                                    fit: BoxFit.cover,
-                                                    memCacheWidth: 400,
-                                                    memCacheHeight: 400,
-                                                    placeholder: (context, url) => Container(
-                                                      color: Colors.grey[200],
-                                                      child: const Center(
-                                                        child: CircularProgressIndicator(),
-                                                      ),
-                                                    ),
-                                                    errorWidget: (context, url, error) => Container(
-                                                      color: Colors.grey[200],
-                                                      child: Column(
-                                                        mainAxisAlignment: MainAxisAlignment.center,
-                                                        children: [
-                                                          Icon(
-                                                            Icons.wifi_off,
-                                                            size: 50,
-                                                            color: Colors.grey[600],
-                                                          ),
-                                                          const SizedBox(height: 8),
-                                                          Text(
-                                                            'Фото недоступно\nбез интернета',
-                                                            textAlign: TextAlign.center,
-                                                            style: TextStyle(
-                                                              color: Colors.grey[600],
-                                                              fontSize: 14,
-                                                            ),
-                                                          ),
-                                                        ],
-                                                      ),
-                                                    ),
+                                                      1.0, // Квадратное соотношение
+                                                  child: _buildCatImage(
+                                                    state.cat,
                                                   ),
                                                 ),
                                               ),
@@ -369,22 +427,22 @@ class _HomeScreenState extends State<HomeScreen>
                                                 right: 0,
                                                 child: Container(
                                                   padding:
-                                                  const EdgeInsets.symmetric(
-                                                    horizontal: 16.0,
-                                                    vertical: 12.0,
-                                                  ),
+                                                      const EdgeInsets.symmetric(
+                                                        horizontal: 16.0,
+                                                        vertical: 12.0,
+                                                      ),
                                                   decoration: BoxDecoration(
                                                     borderRadius:
-                                                    const BorderRadius.vertical(
-                                                      bottom:
-                                                      Radius.circular(
-                                                        15,
-                                                      ),
-                                                    ),
+                                                        const BorderRadius.vertical(
+                                                          bottom:
+                                                              Radius.circular(
+                                                                15,
+                                                              ),
+                                                        ),
                                                     gradient: LinearGradient(
                                                       begin:
-                                                      Alignment
-                                                          .bottomCenter,
+                                                          Alignment
+                                                              .bottomCenter,
                                                       end: Alignment.topCenter,
                                                       colors: [
                                                         Colors.black.withAlpha(
@@ -396,19 +454,19 @@ class _HomeScreenState extends State<HomeScreen>
                                                   ),
                                                   child: Text(
                                                     state.cat.breeds != null &&
-                                                        state
-                                                            .cat
-                                                            .breeds!
-                                                            .isNotEmpty
+                                                            state
+                                                                .cat
+                                                                .breeds!
+                                                                .isNotEmpty
                                                         ? state
-                                                        .cat
-                                                        .breeds![0]
-                                                        .name
+                                                            .cat
+                                                            .breeds![0]
+                                                            .name
                                                         : 'Неизвестная порода',
                                                     style: const TextStyle(
                                                       fontSize: 22,
                                                       fontWeight:
-                                                      FontWeight.bold,
+                                                          FontWeight.bold,
                                                       color: Colors.white,
                                                     ),
                                                     textAlign: TextAlign.center,
@@ -422,9 +480,9 @@ class _HomeScreenState extends State<HomeScreen>
                                                   child: Container(
                                                     decoration: BoxDecoration(
                                                       borderRadius:
-                                                      BorderRadius.circular(
-                                                        15,
-                                                      ),
+                                                          BorderRadius.circular(
+                                                            15,
+                                                          ),
                                                       color: Colors.green
                                                           .withAlpha(77),
                                                     ),
@@ -444,9 +502,9 @@ class _HomeScreenState extends State<HomeScreen>
                                                   child: Container(
                                                     decoration: BoxDecoration(
                                                       borderRadius:
-                                                      BorderRadius.circular(
-                                                        15,
-                                                      ),
+                                                          BorderRadius.circular(
+                                                            15,
+                                                          ),
                                                       color: Colors.red
                                                           .withAlpha(77),
                                                     ),

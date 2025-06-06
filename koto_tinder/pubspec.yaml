@@ -1,7 +1,7 @@
 name: koto_tinder
 description: "A new Flutter project."
 publish_to: 'none'
-version: 1.0.0+1
+version: 3.0.0+3
 
 environment:
   sdk: ^3.7.2
@@ -26,6 +26,10 @@ dependencies:
   shared_preferences: ^2.2.2 # Для счетчика лайков
   dio: ^5.4.0 # Для загрузки изображений
   path_provider: ^2.1.2 # Для доступа к файловой системе
+  crypto: ^3.0.3 # Для генерации хэшей
+
+  # Для темной темы
+  provider: ^6.1.1 # Управление состоянием темы
 
 dev_dependencies:
   flutter_test:

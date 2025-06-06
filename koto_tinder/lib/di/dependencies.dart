@@ -2,6 +2,7 @@ import 'package:koto_tinder/data/datasources/cat_api_datasource.dart';
 import 'package:koto_tinder/data/datasources/cat_local_datasource.dart';
 import 'package:koto_tinder/data/datasources/connectivity_service.dart';
 import 'package:koto_tinder/data/datasources/database_helper.dart';
+import 'package:koto_tinder/data/datasources/enhanced_image_cache_service.dart';
 import 'package:koto_tinder/data/repositories/cat_repository_impl.dart';
 import 'package:koto_tinder/domain/repositories/cat_repository.dart';
 import 'package:koto_tinder/domain/usecases/get_breeds.dart';
@@ -26,6 +27,7 @@ class AppDependencies {
   // Объекты зависимостей
   late ConnectivityService connectivityService;
   late DatabaseHelper databaseHelper;
+  late EnhancedImageCacheService imageCacheService;
   late CatLocalDatasource catLocalDatasource;
   late CatApiDatasource catApiDatasource;
   late CatRepository catRepository;
@@ -40,12 +42,14 @@ class AppDependencies {
     // Сервисы
     connectivityService = ConnectivityService();
     databaseHelper = DatabaseHelper();
+    imageCacheService = EnhancedImageCacheService();
 
     // Источники данных
     catLocalDatasource = CatLocalDatasource(databaseHelper: databaseHelper);
     catApiDatasource = CatApiDatasource(
       localDatasource: catLocalDatasource,
       connectivityService: connectivityService,
+      imageCacheService: imageCacheService,
     );
 
     // Репозитории
